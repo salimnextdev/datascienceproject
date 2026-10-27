@@ -1,4 +1,4 @@
-#End TO End DataScience Project
+#End To End DataScience Project
 
 ##Workflows --ML Pipeline
 
