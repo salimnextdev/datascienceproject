@@ -2,6 +2,7 @@ from src.datascience import logger
 from src.datascience.pipeline.data_ingestion_pipeline import DataIngestionTrainingPipeline
 from src.datascience.pipeline.data_validation_pipeline import DataValidationTrainingPipeline
 from src.datascience.pipeline.data_transformation_pipeline import DataTransformationTrainingPipeline
+from src.datascience.pipeline.model_trainer_pipeline import ModelTrainerTrainingPipeline
 logger.info("welcome to our custom logging data science")
 
 try:
@@ -22,6 +23,12 @@ try:
     transformation_pipeline = DataTransformationTrainingPipeline()
     transformation_pipeline.initiate_data_transformation()
     logger.info(f">>>>> stage {transformation_stage} completed <<<<<\n\nx==========x")
+
+    trainer_stage = "Model Trainer Stage"
+    logger.info(f">>>>> stage {trainer_stage} started <<<<<")
+    trainer_pipeline = ModelTrainerTrainingPipeline()
+    trainer_pipeline.initiate_model_trainer()
+    logger.info(f">>>>> stage {trainer_stage} completed <<<<<\n\nx==========x")
 
 except Exception:
     logger.exception("Pipeline execution failed")
