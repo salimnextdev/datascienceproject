@@ -1,0 +1,67 @@
+import os
+import pandas as pd
+from sklearn.metrics import mean_squared_error,mean_absolute_error, r2_score
+from urllib.parse import urlparse
+from src.datascience.entity.config_entity import ModelEvaluationConfig
+from src.datascience.constants import *
+from src.datascience.utils.common import read_yaml, create_directories, save_json
+import mlflow
+import mlflow.sklearn
+import numpy as np
+import joblib
+import os 
+os.environ["MLFOW_TRACKING_URI"]="https://dagshub.com/salimnextdev/datascienceproject.mlflow"
+os.environ["MLFLOW_TRACKING_USERNAME"]="salimnextdev"
+os.environ["MLFLOW_TRACKING_PASSWORD"]="30210646ee1a1ca4fdd14d1deb953226005b8ba3"
+
+class ModelEvaluation:
+    def __init__(self, config: ModelEvaluationConfig):
+        self.config=config
+
+    def eval_metrics(self, actual, pred):
+        rmse = np.sqrt(mean_squared_error(actual, pred))
+        mae = mean_absolute_error(actual, pred)
+        r2 = r2_score(actual, pred)
+        return rmse, mae, r2
+
+    def log_into_mlflow(self):
+
+        test_data = pd.read_csv(self.config.test_data_path)
+        model = joblib.load(self.config.model_path)
+
+        test_x = test_data.drop([self.config.target_column], axis = 1)
+        test_y = test_data[self.config.target_column]
+
+        os.environ.setdefault("MLFLOW_TRACKING_USERNAME", "salimnextdev")
+        if not os.environ.get("MLFLOW_TRACKING_PASSWORD"):
+            raise RuntimeError(
+                "MLFLOW_TRACKING_PASSWORD is not set. Export your DagsHub access token "
+                "in the shell before running python main.py."
+            )
+
+        mlflow.set_tracking_uri(self.config.mlflow_uri)
+        mlflow.set_registry_uri(self.config.mlflow_uri)
+        tracking_uri_type_store = urlparse(mlflow.get_tracking_uri()).scheme
+
+        with mlflow.start_run():
+            predicted_qualities = model.predict(test_x)
+
+            (rmse,mae,r2) = self.eval_metrics(test_y, predicted_qualities)
+
+            #Saving metrics as local
+            scores = {"rmse": rmse, "mae": mae, "r2_score": r2}
+            save_json(path=Path(self.config.metric_file_name), data=scores)
+
+            mlflow.log_params(self.config.all_params)
+
+            mlflow.log_metric("rmse",rmse)
+            mlflow.log_metric("r2", r2)
+            mlflow.log_metric("mae", mae)
+            mlflow.log_artifact(str(self.config.model_path), artifact_path="joblib_model")
+
+            if tracking_uri_type_store != "file":
+                #Register the Model
+                ## There are other wasy to sue the Model Registry which depends on the use case
+                mlflow.sklearn.log_model(model, "model", registered_model_name="ElasticnetModel")
+            else:
+                mlflow.sklearn.log_model(model, "model")
