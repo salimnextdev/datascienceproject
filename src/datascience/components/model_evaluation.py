@@ -12,7 +12,6 @@ import joblib
 import os 
 os.environ["MLFOW_TRACKING_URI"]="https://dagshub.com/salimnextdev/datascienceproject.mlflow"
 os.environ["MLFLOW_TRACKING_USERNAME"]="salimnextdev"
-os.environ["MLFLOW_TRACKING_PASSWORD"]="30210646ee1a1ca4fdd14d1deb953226005b8ba3"
 
 class ModelEvaluation:
     def __init__(self, config: ModelEvaluationConfig):
