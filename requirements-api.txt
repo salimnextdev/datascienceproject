@@ -1,0 +1,10 @@
+Flask
+gunicorn
+mlflow
+joblib
+numpy
+pandas
+python-box
+PyYAML
+scikit-learn
+ensure
