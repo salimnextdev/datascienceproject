@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prediction Result</title>
+    <style>
+        :root {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #24211f;
+            background: #f7f4ef;
+        }
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            margin: 0;
+            padding: 24px;
+            background: radial-gradient(circle at top right, #f1e4d7, transparent 38%), #f7f4ef;
+        }
+        main {
+            width: min(560px, 100%);
+            padding: clamp(28px, 7vw, 52px);
+            border: 1px solid #e8e0d8;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, .92);
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(62, 42, 30, .08);
+        }
+        .eyebrow {
+            margin: 0 0 12px;
+            color: #8b4e39;
+            font-size: .75rem;
+            font-weight: 800;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+        h1 { margin: 0; font-size: clamp(2.2rem, 8vw, 4rem); letter-spacing: -.05em; }
+        .label { margin: 8px 0 28px; color: #6f6a65; }
+        a {
+            display: inline-block;
+            padding: 13px 20px;
+            border-radius: 10px;
+            background: #713e31;
+            color: #fff;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        a:hover { background: #5e3228; }
+    </style>
+</head>
+<body>
+    <main>
+        <p class="eyebrow">Prediction complete</p>
+        <h1>{{ prediction }}</h1>
+        <p class="label">Estimated wine quality</p>
+        <a href="{{ url_for('homepage') }}">Make another prediction</a>
+    </main>
+</body>
+</html>
