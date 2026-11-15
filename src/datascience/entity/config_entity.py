@@ -26,9 +26,10 @@ class ModelTrainerConfig:
     train_data_path: Path
     test_data_path: Path
     model_name: str
-    alpha: float
-    l1_ratio: float
+    param_grids: dict
     target_column: str
+    cv_folds: int
+    mlflow_uri: str
 
 @dataclass
 class ModelEvaluationConfig:
@@ -39,3 +40,14 @@ class ModelEvaluationConfig:
     metric_file_name: Path
     target_column: str
     mlflow_uri: str
+
+
+@dataclass
+class DataDriftConfig:
+    root_dir: Path
+    train_data_path: Path
+    test_data_path: Path
+    inference_log: Path
+    drift_report_json: Path
+    drift_report_html: Path
+    drift_threshold: float

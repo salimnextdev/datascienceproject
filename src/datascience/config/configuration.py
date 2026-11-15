@@ -1,6 +1,9 @@
 from src.datascience.constants import *
 from src.datascience.utils.common import read_yaml, create_directories
-from src.datascience.entity.config_entity import (DataIngestionConfig, DataValidationConfig, DataTransformationConfig, ModelTrainerConfig,ModelEvaluationConfig)
+from src.datascience.entity.config_entity import (
+    DataIngestionConfig, DataValidationConfig, DataTransformationConfig,
+    ModelTrainerConfig, ModelEvaluationConfig, DataDriftConfig,
+)
 class ConfigurationManager:
     def __init__(self,
                  config_filepath=CONFIG_FILEPATH,
@@ -53,38 +56,49 @@ class ConfigurationManager:
     def get_model_trainer_config(self) -> ModelTrainerConfig:
         config = self.config.model_trainer
         schema = self.schema.TARGET_COLUMN
-        params = self.params.ElasticNet
 
         create_directories([config.root_dir])
 
-        model_trainer_config = ModelTrainerConfig(
+        return ModelTrainerConfig(
             root_dir=config.root_dir,
             train_data_path=config.train_data_path,
             test_data_path=config.test_data_path,
             model_name=config.model_name,
-            alpha=params.alpha,
-            l1_ratio=params.l1_ratio,
-            target_column=schema.name
+            param_grids={
+                "ElasticNet":        dict(self.params.ElasticNet),
+                "RandomForest":      dict(self.params.RandomForest),
+                "GradientBoosting":  dict(self.params.GradientBoosting),
+            },
+            target_column=schema.name,
+            cv_folds=int(config.cv_folds),
+            mlflow_uri=config.mlflow_uri,
         )
-        return model_trainer_config
 
-    def get_model_evaluation_config(self)-> ModelEvaluationConfig:
-            config=self.config.model_evaluation
-            params=self.params.ElasticNet
-            schema=self.schema.TARGET_COLUMN
-    
-            create_directories([config.root_dir])
-    
-            model_evaluation_config=ModelEvaluationConfig(
-                root_dir=config.root_dir,
-                test_data_path=config.test_data_path,
-                model_path=config.model_path,
-                all_params=params,
-                metric_file_name=config.metric_file_name,
-                target_column=schema.name,
-                mlflow_uri="https://dagshub.com/salimnextdev/datascienceproject.mlflow"
-    
-            )
-    
-            return model_evaluation_config
-    
+    def get_model_evaluation_config(self) -> ModelEvaluationConfig:
+        config = self.config.model_evaluation
+        schema = self.schema.TARGET_COLUMN
+
+        create_directories([config.root_dir])
+
+        return ModelEvaluationConfig(
+            root_dir=config.root_dir,
+            test_data_path=config.test_data_path,
+            model_path=config.model_path,
+            all_params={},
+            metric_file_name=config.metric_file_name,
+            target_column=schema.name,
+            mlflow_uri="https://dagshub.com/salimnextdev/datascienceproject.mlflow",
+        )
+
+    def get_data_drift_config(self) -> DataDriftConfig:
+        config = self.config.data_drift
+        create_directories([config.root_dir])
+        return DataDriftConfig(
+            root_dir=Path(config.root_dir),
+            train_data_path=Path(config.train_data_path),
+            test_data_path=Path(config.test_data_path),
+            inference_log=Path(config.inference_log),
+            drift_report_json=Path(config.drift_report_json),
+            drift_report_html=Path(config.drift_report_html),
+            drift_threshold=float(config.drift_threshold),
+        )

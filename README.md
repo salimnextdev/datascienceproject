@@ -79,7 +79,8 @@ an HTML form, not a JSON request/response API.
 | `/predict` | POST | Reads the submitted form fields, constructs a feature row, runs the trained model, and renders `templates/results.html` with the predicted quality score. Invalid or missing numeric inputs return the form with an error. |
 | `/train` | GET | Runs `main.py` as a subprocess and returns a success response when the full pipeline completes. Failures are logged and return HTTP 500. |
 
-Predictions require the trained model to exist at
+The `/train` endpoint is protected with HTTP Basic Auth (credentials configured
+via environment variables). Predictions require the trained model to exist at
 `artifacts/model_trainer/model.joblib`. Run training before making predictions
 if this file is not present. The `/train` endpoint starts ingestion, validation,
 transformation, training, and evaluation; it is intended for a trusted
@@ -280,7 +281,7 @@ and can be triggered manually.
 | SAST | every push and PR | Runs SonarQube static analysis on the Python source code. |
 | SCA | every push and PR | Runs Snyk against `requirements.txt` and fails on high or critical dependency CVEs. |
 | CT | push to `main`, `staging`, `dev` | Pulls artifacts from DVC, runs the full 5-stage ML pipeline, pushes updated artifacts back to DVC, commits the updated `artifacts.dvc` pointer, and prints RMSE/MAE/R² to the job summary. |
-| CD | after CT passes | Resolves the target environment from the branch (`dev` → dev, `staging` → staging, `main` → prod), builds the Docker image, runs Trivy to scan for CRITICAL/HIGH CVEs, pushes to ECR, force-deploys the ECS service, and waits for it to stabilise. |
+| CD | after CT passes | Resolves the target environment from the branch (`dev` → dev, `staging` → staging, `main` → prod), builds the Docker image, runs Trivy to scan for CRITICAL/HIGH CVEs, pushes to ECR, force-deploys the ECS service, waits for it to stabilise, and automatically rolls back to the previous task definition revision if stabilisation fails. |
 | DAST | after CD passes | Runs an Akamai Noname active API security scan against the live ALB endpoint of the deployed environment. |
 | Monitor | daily at 02:00 UTC | Pulls latest artifacts, re-evaluates the model, fails if RMSE > 0.75 or R² < 0.35, and automatically triggers a new training run if thresholds are breached. |
 

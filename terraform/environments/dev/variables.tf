@@ -16,3 +16,8 @@ variable "mlflow_tracking_username" {
 variable "mlflow_tracking_password_secret_arn" {
   type = string
 }
+
+variable "acm_certificate_arn" {
+  type        = string
+  description = "ARN of the ACM certificate for the HTTPS listener"
+}

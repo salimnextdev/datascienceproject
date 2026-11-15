@@ -1,5 +1,5 @@
 output "alb_dns_name" {
-  value = "http://${aws_lb.main.dns_name}"
+  value = "https://${aws_lb.main.dns_name}"
 }
 
 output "ecr_repository_url" {

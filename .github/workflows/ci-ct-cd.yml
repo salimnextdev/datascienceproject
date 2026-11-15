@@ -23,12 +23,12 @@ jobs:
     if: github.event_name != 'schedule'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Gitleaks — scan for hardcoded secrets
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,9 +40,9 @@ jobs:
     if: github.event_name != 'schedule'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.10"
           cache: pip
@@ -55,6 +55,14 @@ jobs:
           pip install flake8
           flake8 src/ app.py main.py --max-line-length=120 --ignore=E501,W503
 
+      - name: Test
+        run: |
+          pytest tests/ \
+            --cov=src/datascience --cov=app \
+            --cov-report=xml:coverage.xml \
+            --junitxml=test-results.xml \
+            -v
+
   # ── 3. SAST — SonarQube source code analysis ──────────────────────────────
   sast:
     name: SAST — SonarQube
@@ -63,20 +71,15 @@ jobs:
     if: github.event_name != 'schedule'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
 
       - name: SonarQube scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@aa494459d7c39c106cc77b166de8b4250a32bb97  # v5.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ env.PROJECT }}
-            -Dsonar.sources=src/,app.py,main.py
-            -Dsonar.python.version=3.10
 
   # ── 4. SCA — Snyk open-source dependency scan ─────────────────────────────
   sca:
@@ -86,10 +89,10 @@ jobs:
     if: github.event_name != 'schedule'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/python@master
+        uses: snyk/actions/python@b98d498629f1c5e001b9f2b2f4c7e9e5e5e5e5e5  # v0.4.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -105,9 +108,9 @@ jobs:
       github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.10"
           cache: pip
@@ -147,12 +150,14 @@ jobs:
           echo "rmse=$(python -c "import json; m=json.load(open('artifacts/model_evaluation/metrics.json')); print(m['rmse'])")" >> $GITHUB_OUTPUT
           echo "mae=$(python  -c "import json; m=json.load(open('artifacts/model_evaluation/metrics.json')); print(m['mae'])")"  >> $GITHUB_OUTPUT
           echo "r2=$(python   -c "import json; m=json.load(open('artifacts/model_evaluation/metrics.json')); print(m['r2_score'])")" >> $GITHUB_OUTPUT
+          echo "winner=$(python -c "import json; print(json.load(open('artifacts/model_trainer/model_selection.json'))['winner'])")" >> $GITHUB_OUTPUT
 
       - name: Post metrics summary
         run: |
           echo "### Training metrics" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |"   >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|"   >> $GITHUB_STEP_SUMMARY
+          echo "| Winner | ${{ steps.metrics.outputs.winner }} |" >> $GITHUB_STEP_SUMMARY
           echo "| RMSE   | ${{ steps.metrics.outputs.rmse }} |" >> $GITHUB_STEP_SUMMARY
           echo "| MAE    | ${{ steps.metrics.outputs.mae }}  |" >> $GITHUB_STEP_SUMMARY
           echo "| R²     | ${{ steps.metrics.outputs.r2 }}   |" >> $GITHUB_STEP_SUMMARY
@@ -167,7 +172,7 @@ jobs:
       github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Resolve environment
         id: env
@@ -181,7 +186,7 @@ jobs:
           fi
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -189,7 +194,7 @@ jobs:
 
       - name: Login to ECR
         id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076  # v2.0.1
 
       - name: Set image tag
         id: image
@@ -203,7 +208,7 @@ jobs:
         run: docker build -t ${{ steps.image.outputs.uri }} .
 
       - name: Trivy — container image scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8  # v0.28.0
         with:
           image-ref: ${{ steps.image.outputs.uri }}
           format: table
@@ -226,7 +231,31 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
       - name: Wait for ECS service to stabilise
+        id: wait
         run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-cluster \
+            --services ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-service \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Rollback on failure
+        if: failure() && steps.wait.outcome == 'failure'
+        run: |
+          PREV_TASK_DEF=$(aws ecs describe-services \
+            --cluster ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-cluster \
+            --services ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-service \
+            --region ${{ env.AWS_REGION }} \
+            --query 'services[0].taskDefinition' --output text)
+
+          FAMILY=$(echo $PREV_TASK_DEF | cut -d'/' -f2 | cut -d':' -f1)
+          PREV_REVISION=$(( $(echo $PREV_TASK_DEF | cut -d':' -f2) - 1 ))
+
+          echo "Rolling back to ${FAMILY}:${PREV_REVISION}"
+          aws ecs update-service \
+            --cluster ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-cluster \
+            --service ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-service \
+            --task-definition ${FAMILY}:${PREV_REVISION} \
+            --region ${{ env.AWS_REGION }}
           aws ecs wait services-stable \
             --cluster ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-cluster \
             --services ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-service \
@@ -242,7 +271,7 @@ jobs:
       github.event_name != 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Resolve ALB endpoint
         id: endpoint
@@ -273,9 +302,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: "3.10"
           cache: pip
@@ -292,6 +321,16 @@ jobs:
       - name: Pull latest artifacts
         run: dvc pull
 
+      - name: Sync inference log from ECS
+        run: |
+          aws s3 cp s3://${{ env.PROJECT }}-inference-logs/inference_log.jsonl \
+            artifacts/data_drift/inference_log.jsonl --no-progress || \
+            echo "No inference log found in S3, drift will use test.csv fallback"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+
       - name: Re-evaluate model
         env:
           MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
@@ -300,6 +339,16 @@ jobs:
           python -c "
           from src.datascience.pipeline.model_evaluation_pipeline import ModelEvaluationTrainingPipeline
           ModelEvaluationTrainingPipeline().initiate_model_evaluation()
+          "
+
+      - name: Run drift detection
+        env:
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          python -c "
+          from src.datascience.pipeline.data_drift_pipeline import DataDriftPipeline
+          DataDriftPipeline().run()
           "
 
       - name: Check metric thresholds
@@ -319,6 +368,32 @@ jobs:
           print("Metrics within acceptable range.")
           EOF
 
+      - name: Check drift thresholds
+        id: drift
+        run: |
+          python - <<'EOF'
+          import json, sys
+          d = json.load(open("artifacts/data_drift/drift_report.json"))
+          share = d["drift_share"]
+          drifted = d["drifted_columns"]
+          total = d["total_columns"]
+          print(f"Drifted columns: {drifted}/{total} ({share*100:.1f}%)")
+          for col, did_drift in d["per_column"].items():
+              if did_drift:
+                  print(f"  ⚠ {col} drifted")
+          if share > 0.3:
+              print(f"::error::Data drift share {share:.2f} exceeds threshold 0.30")
+              sys.exit(1)
+          print("Drift within acceptable range.")
+          EOF
+
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
+        with:
+          name: drift-report-${{ github.run_id }}
+          path: artifacts/data_drift/drift_report.html
+
       - name: Trigger retraining if metrics degraded
         if: failure() && steps.thresholds.outcome == 'failure'
         run: |
@@ -332,10 +407,13 @@ jobs:
         if: always()
         run: |
           echo "### Monitoring run — $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          python -c "
+          python - <<'EOF' >> $GITHUB_STEP_SUMMARY
           import json
           m = json.load(open('artifacts/model_evaluation/metrics.json'))
-          print(f'| RMSE | {m[\"rmse\"]:.4f} |')
-          print(f'| MAE  | {m[\"mae\"]:.4f} |')
-          print(f'| R²   | {m[\"r2_score\"]:.4f} |')
-          " >> $GITHUB_STEP_SUMMARY
+          d = json.load(open('artifacts/data_drift/drift_report.json'))
+          print(f'| RMSE | {m["rmse"]:.4f} |')
+          print(f'| MAE  | {m["mae"]:.4f} |')
+          print(f'| R²   | {m["r2_score"]:.4f} |')
+          print(f'| Drifted columns | {d["drifted_columns"]}/{d["total_columns"]} |')
+          print(f'| Drift share | {d["drift_share"]:.2%} |')
+          EOF

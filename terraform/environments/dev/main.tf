@@ -34,4 +34,5 @@ module "app" {
   mlflow_tracking_uri                 = var.mlflow_tracking_uri
   mlflow_tracking_username            = var.mlflow_tracking_username
   mlflow_tracking_password_secret_arn = var.mlflow_tracking_password_secret_arn
+  acm_certificate_arn                 = var.acm_certificate_arn
 }

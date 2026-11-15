@@ -4,6 +4,7 @@ from src.datascience.pipeline.data_validation_pipeline import DataValidationTrai
 from src.datascience.pipeline.data_transformation_pipeline import DataTransformationTrainingPipeline
 from src.datascience.pipeline.model_trainer_pipeline import ModelTrainerTrainingPipeline
 from src.datascience.pipeline.model_evaluation_pipeline import ModelEvaluationTrainingPipeline
+from src.datascience.pipeline.data_drift_pipeline import DataDriftPipeline
 logger.info("welcome to our custom logging data science")
 
 try:
@@ -35,7 +36,12 @@ try:
     logger.info(f">>>>> stage {evaluation_stage} started <<<<<")
     evaluation_pipeline = ModelEvaluationTrainingPipeline()
     evaluation_pipeline.initiate_model_evaluation()
-    logger.info(f">>>>> stage {evaluation_stage} completed <<<<<\n\nx==========x") 
+    logger.info(f">>>>> stage {evaluation_stage} completed <<<<<\n\nx==========x")
+
+    drift_stage = "Data Drift Stage"
+    logger.info(f">>>>> stage {drift_stage} started <<<<<")
+    DataDriftPipeline().run()
+    logger.info(f">>>>> stage {drift_stage} completed <<<<<\n\nx==========x") 
 
 except Exception:
     logger.exception("Pipeline execution failed")
