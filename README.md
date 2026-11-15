@@ -110,7 +110,11 @@ the application to untrusted users.
 | Secret management | AWS Secrets Manager | Stores the DagsHub token injected into the container as `MLFLOW_TRACKING_PASSWORD`. |
 | Remote state storage | AWS S3 | Stores the Terraform state file with versioning and AES256 encryption. |
 | State locking | AWS DynamoDB | Prevents concurrent Terraform runs from corrupting the state file. |
-| CI/CD/CT | GitHub Actions | Runs linting, the full ML pipeline, Docker build, and ECS deployment on every push. |
+| CI/CD/CT | GitHub Actions | Runs linting, SAST, SCA, the full ML pipeline, container scanning, Docker build, ECS deployment, and DAST on every push. |
+| SAST | SonarQube | Static analysis of Python source code for bugs, code smells, and security vulnerabilities. |
+| SCA | Snyk | Scans `requirements.txt` for known vulnerabilities in open-source dependencies. |
+| Container scanning | Trivy | Scans the built Docker image for OS and library CVEs before it is pushed to ECR. |
+| DAST | Akamai Noname | Active API security scan against the live ALB endpoint after each deployment. |
 
 The main development dependencies are listed in `requirements.txt`. The
 container installs the API and training runtime dependencies from
@@ -271,8 +275,11 @@ and can be triggered manually.
 | Job | Trigger | What it does |
 |---|---|---|
 | CI | every push and PR | Installs dependencies and runs `flake8` on `src/`, `app.py`, and `main.py`. |
+| SAST | every push and PR | Runs SonarQube static analysis on the Python source code. |
+| SCA | every push and PR | Runs Snyk against `requirements.txt` and fails on high or critical dependency CVEs. |
 | CT | push to `main`, `staging`, `dev` | Pulls artifacts from DVC, runs the full 5-stage ML pipeline, pushes updated artifacts back to DVC, commits the updated `artifacts.dvc` pointer, and prints RMSE/MAE/R² to the job summary. |
-| CD | after CT passes | Resolves the target environment from the branch (`dev` → dev, `staging` → staging, `main` → prod), builds and pushes the Docker image to ECR tagged with the commit SHA, force-deploys the ECS service, and waits for it to stabilise. |
+| CD | after CT passes | Resolves the target environment from the branch (`dev` → dev, `staging` → staging, `main` → prod), builds the Docker image, runs Trivy to scan for CRITICAL/HIGH CVEs, pushes to ECR, force-deploys the ECS service, and waits for it to stabilise. |
+| DAST | after CD passes | Runs an Akamai Noname active API security scan against the live ALB endpoint of the deployed environment. |
 | Monitor | daily at 02:00 UTC | Pulls latest artifacts, re-evaluates the model, fails if RMSE > 0.75 or R² < 0.35, and automatically triggers a new training run if thresholds are breached. |
 
 **GitHub secrets required:**
@@ -283,3 +290,10 @@ and can be triggered manually.
 | `AWS_SECRET_ACCESS_KEY` | Corresponding AWS secret key |
 | `DAGSHUB_USERNAME` | `salimnextdev` |
 | `DAGSHUB_TOKEN` | DagsHub access token (used for both MLflow and DVC) |
+| `SONAR_TOKEN` | SonarQube authentication token |
+| `SONAR_HOST_URL` | SonarQube server URL |
+| `SNYK_TOKEN` | Snyk API token |
+| `NONAME_API_TOKEN` | Akamai Noname API token for DAST scans |
+| `ALB_URL_DEV` | ALB DNS URL for the dev environment |
+| `ALB_URL_STAGING` | ALB DNS URL for the staging environment |
+| `ALB_URL_PROD` | ALB DNS URL for the prod environment |
