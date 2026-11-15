@@ -2,10 +2,9 @@ name: CI / CT / CD / Monitor
 
 on:
   push:
-    branches: ["main", "staging", "prod"]
-    tags: ["v*"]
+    branches: ["main", "staging", "dev"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "staging", "dev"]
   schedule:
     # Continuous monitoring — re-evaluate model every day at 02:00 UTC
     - cron: "0 2 * * *"
@@ -120,9 +119,9 @@ jobs:
       - name: Resolve environment
         id: env
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v*prod* ]]; then
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "name=prod" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/heads/staging || "${{ github.ref }}" == refs/tags/v*staging* ]]; then
+          elif [[ "${{ github.ref_name }}" == "staging" ]]; then
             echo "name=staging" >> $GITHUB_OUTPUT
           else
             echo "name=dev" >> $GITHUB_OUTPUT

@@ -110,6 +110,7 @@ the application to untrusted users.
 | Secret management | AWS Secrets Manager | Stores the DagsHub token injected into the container as `MLFLOW_TRACKING_PASSWORD`. |
 | Remote state storage | AWS S3 | Stores the Terraform state file with versioning and AES256 encryption. |
 | State locking | AWS DynamoDB | Prevents concurrent Terraform runs from corrupting the state file. |
+| CI/CD/CT | GitHub Actions | Runs linting, the full ML pipeline, Docker build, and ECS deployment on every push. |
 
 The main development dependencies are listed in `requirements.txt`. The
 container installs the API and training runtime dependencies from
@@ -138,6 +139,9 @@ container installs the API and training runtime dependencies from
   is gitignored in each environment; copy `terraform.tfvars.example` to get started.
 - `bootstrap-tfstate.sh` creates the shared S3 bucket and DynamoDB table required
   by the Terraform S3 backend before `terraform init` is run for the first time.
+
+- `.github/workflows/ci-ct-cd.yml` defines the full CI/CD/CT and monitoring
+  pipeline. It runs on every push to `main`, `staging`, and `dev`.
 
 The model is stored locally as `model.joblib`. MLflow may also serialize its
 own logged or registered model in the format selected by the installed MLflow
@@ -257,3 +261,25 @@ docker push <ecr_repository_url>:latest
 Replace `<ecr_repository_url>` with the value from `terraform output ecr_repository_url`.
 Once the ECS service starts the task, the application is available at the URL
 from `terraform output alb_dns_name`.
+
+### CI/CD/CT and continuous monitoring
+
+The workflow in `.github/workflows/ci-ct-cd.yml` runs automatically on every
+push to `main`, `staging`, or `dev`, on pull requests, on a daily schedule,
+and can be triggered manually.
+
+| Job | Trigger | What it does |
+|---|---|---|
+| CI | every push and PR | Installs dependencies and runs `flake8` on `src/`, `app.py`, and `main.py`. |
+| CT | push to `main`, `staging`, `dev` | Pulls artifacts from DVC, runs the full 5-stage ML pipeline, pushes updated artifacts back to DVC, commits the updated `artifacts.dvc` pointer, and prints RMSE/MAE/R² to the job summary. |
+| CD | after CT passes | Resolves the target environment from the branch (`dev` → dev, `staging` → staging, `main` → prod), builds and pushes the Docker image to ECR tagged with the commit SHA, force-deploys the ECS service, and waits for it to stabilise. |
+| Monitor | daily at 02:00 UTC | Pulls latest artifacts, re-evaluates the model, fails if RMSE > 0.75 or R² < 0.35, and automatically triggers a new training run if thresholds are breached. |
+
+**GitHub secrets required:**
+
+| Secret | Value |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | AWS access key with ECR and ECS permissions |
+| `AWS_SECRET_ACCESS_KEY` | Corresponding AWS secret key |
+| `DAGSHUB_USERNAME` | `salimnextdev` |
+| `DAGSHUB_TOKEN` | DagsHub access token (used for both MLflow and DVC) |
