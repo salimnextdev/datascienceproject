@@ -108,6 +108,8 @@ the application to untrusted users.
 | Container orchestration | AWS ECS Fargate | Runs the containerised Flask application as a serverless task. |
 | Load balancer | AWS ALB | Distributes HTTP traffic on port 80 to the Fargate tasks. |
 | Secret management | AWS Secrets Manager | Stores the DagsHub token injected into the container as `MLFLOW_TRACKING_PASSWORD`. |
+| Remote state storage | AWS S3 | Stores the Terraform state file with versioning and AES256 encryption. |
+| State locking | AWS DynamoDB | Prevents concurrent Terraform runs from corrupting the state file. |
 
 The main development dependencies are listed in `requirements.txt`. The
 container installs the API and training runtime dependencies from
@@ -132,6 +134,8 @@ container installs the API and training runtime dependencies from
 - `terraform/` contains the Terraform configuration for provisioning the AWS
   infrastructure (VPC, ECR, ECS Fargate, ALB). `terraform.tfvars` is gitignored
   and must be created locally before running `terraform apply`.
+- `bootstrap-tfstate.sh` creates the S3 bucket and DynamoDB table required by
+  the Terraform S3 backend before `terraform init` is run for the first time.
 
 The model is stored locally as `model.joblib`. MLflow may also serialize its
 own logged or registered model in the format selected by the installed MLflow
@@ -208,6 +212,16 @@ aws secretsmanager create-secret \
   --name datascienceproject/mlflow-token \
   --secret-string "<your_dagshub_token>"
 ```
+
+**Bootstrap the Terraform remote state (one-time, before `terraform init`):**
+
+```bash
+./bootstrap-tfstate.sh
+```
+
+This creates the S3 bucket (`datascienceproject-tfstate`) with versioning and
+encryption enabled, and the DynamoDB table (`datascienceproject-tfstate-lock`)
+for state locking.
 
 **Provision the infrastructure:**
 
