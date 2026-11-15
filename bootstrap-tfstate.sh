@@ -30,4 +30,7 @@ aws dynamodb create-table \
   --billing-mode PAY_PER_REQUEST \
   --region "$REGION"
 
-echo "Done. Run: cd terraform && terraform init && terraform apply"
+echo "Done. Deploy an environment with:"
+echo "  cd terraform/environments/dev && terraform init && terraform apply"
+echo "  cd terraform/environments/staging && terraform init && terraform apply"
+echo "  cd terraform/environments/prod && terraform init && terraform apply"

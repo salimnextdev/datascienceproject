@@ -1,95 +1,26 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  required_version = ">= 1.6"
-
-  backend "s3" {
-    bucket         = "datascienceproject-tfstate"
-    key            = "terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "datascienceproject-tfstate-lock"
-    encrypt        = true
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
-# ── State backend ───────────────────────────────────────────────────────────
-
-resource "aws_s3_bucket" "tfstate" {
-  bucket        = "datascienceproject-tfstate"
-  force_destroy = false
-  tags          = { Name = "${var.project}-tfstate" }
-}
-
-resource "aws_s3_bucket_versioning" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  versioning_configuration { status = "Enabled" }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
-  bucket = aws_s3_bucket.tfstate.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "tfstate" {
-  bucket                  = aws_s3_bucket.tfstate.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# ── State lock table ────────────────────────────────────────────────────────
-
-resource "aws_dynamodb_table" "tfstate_lock" {
-  name         = "datascienceproject-tfstate-lock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = { Name = "${var.project}-tfstate-lock" }
-}
-
-# ── Data ────────────────────────────────────────────────────────────────────
-
 data "aws_availability_zones" "available" {}
 
 # ── VPC ─────────────────────────────────────────────────────────────────────
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = { Name = "${var.project}-vpc" }
+  tags = { Name = "${var.project}-${var.env}-vpc" }
 }
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${var.project}-igw" }
+  tags   = { Name = "${var.project}-${var.env}-igw" }
 }
 
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)
   availability_zone       = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch = true
-  tags                    = { Name = "${var.project}-public-${count.index}" }
+  tags                    = { Name = "${var.project}-${var.env}-public-${count.index}" }
 }
 
 resource "aws_route_table" "public" {
@@ -98,7 +29,7 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
-  tags = { Name = "${var.project}-rt" }
+  tags = { Name = "${var.project}-${var.env}-rt" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -110,7 +41,7 @@ resource "aws_route_table_association" "public" {
 # ── Security Groups ──────────────────────────────────────────────────────────
 
 resource "aws_security_group" "alb" {
-  name   = "${var.project}-alb-sg"
+  name   = "${var.project}-${var.env}-alb-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -129,7 +60,7 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_security_group" "ecs" {
-  name   = "${var.project}-ecs-sg"
+  name   = "${var.project}-${var.env}-ecs-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -150,7 +81,7 @@ resource "aws_security_group" "ecs" {
 # ── ALB ─────────────────────────────────────────────────────────────────────
 
 resource "aws_lb" "main" {
-  name               = "${var.project}-alb"
+  name               = "${var.project}-${var.env}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -158,7 +89,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name        = "${var.project}-tg"
+  name        = "${var.project}-${var.env}-tg"
   port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
@@ -187,7 +118,7 @@ resource "aws_lb_listener" "http" {
 # ── ECR ─────────────────────────────────────────────────────────────────────
 
 resource "aws_ecr_repository" "app" {
-  name                 = var.project
+  name                 = "${var.project}-${var.env}"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -198,7 +129,7 @@ resource "aws_ecr_repository" "app" {
 # ── IAM ─────────────────────────────────────────────────────────────────────
 
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "${var.project}-ecs-execution-role"
+  name = "${var.project}-${var.env}-ecs-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -215,19 +146,33 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy" "secrets_access" {
+  name = "${var.project}-${var.env}-secrets-access"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = var.mlflow_tracking_password_secret_arn
+    }]
+  })
+}
+
 # ── ECS ─────────────────────────────────────────────────────────────────────
 
 resource "aws_ecs_cluster" "main" {
-  name = "${var.project}-cluster"
+  name = "${var.project}-${var.env}-cluster"
 }
 
 resource "aws_cloudwatch_log_group" "app" {
-  name              = "/ecs/${var.project}"
-  retention_in_days = 7
+  name              = "/ecs/${var.project}-${var.env}"
+  retention_in_days = var.log_retention_days
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = var.project
+  family                   = "${var.project}-${var.env}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = var.task_cpu
@@ -235,7 +180,7 @@ resource "aws_ecs_task_definition" "app" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
 
   container_definitions = jsonencode([{
-    name      = var.project
+    name      = "${var.project}-${var.env}"
     image     = "${aws_ecr_repository.app.repository_url}:latest"
     essential = true
 
@@ -266,7 +211,7 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_service" "app" {
-  name            = "${var.project}-service"
+  name            = "${var.project}-${var.env}-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = var.desired_count
@@ -280,7 +225,7 @@ resource "aws_ecs_service" "app" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
-    container_name   = var.project
+    container_name   = "${var.project}-${var.env}"
     container_port   = 8080
   }
 

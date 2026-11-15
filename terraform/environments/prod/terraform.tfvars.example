@@ -1,0 +1,4 @@
+aws_region                          = "us-east-1"
+mlflow_tracking_uri                 = "https://dagshub.com/salimnextdev/datascienceproject.mlflow"
+mlflow_tracking_username            = "salimnextdev"
+mlflow_tracking_password_secret_arn = "<your_secret_arn>"
