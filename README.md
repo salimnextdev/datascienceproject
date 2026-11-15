@@ -103,6 +103,11 @@ the application to untrusted users.
 | Container base | Chainguard Python | Provides the development build stage and a minimal, non-root Python runtime stage. |
 | Logging | Python `logging` | Writes pipeline and application logs to the console and the local `logs/` directory. |
 | Dataset hosting | GitHub-hosted ZIP archive | Provides the source wine-quality data configured in `config/config.yaml`. |
+| Data versioning | DVC | Tracks and versions the `artifacts/` directory; remote storage is hosted on DagsHub. |
+| Infrastructure | Terraform | Provisions the AWS VPC, ECR, ECS Fargate cluster, and Application Load Balancer. |
+| Container orchestration | AWS ECS Fargate | Runs the containerised Flask application as a serverless task. |
+| Load balancer | AWS ALB | Distributes HTTP traffic on port 80 to the Fargate tasks. |
+| Secret management | AWS Secrets Manager | Stores the DagsHub token injected into the container as `MLFLOW_TRACKING_PASSWORD`. |
 
 The main development dependencies are listed in `requirements.txt`. The
 container installs the API and training runtime dependencies from
@@ -122,7 +127,11 @@ container installs the API and training runtime dependencies from
   those records.
 - `artifacts/` contains downloaded data, validation status, train/test data,
   the Joblib model, and evaluation metrics. These are generated runtime
-  artifacts rather than source code.
+  artifacts rather than source code. The directory is tracked by DVC; only
+  `artifacts.dvc` is committed to Git.
+- `terraform/` contains the Terraform configuration for provisioning the AWS
+  infrastructure (VPC, ECR, ECS Fargate, ALB). `terraform.tfvars` is gitignored
+  and must be created locally before running `terraform apply`.
 
 The model is stored locally as `model.joblib`. MLflow may also serialize its
 own logged or registered model in the format selected by the installed MLflow
@@ -159,3 +168,67 @@ docker run --rm -p 8080:8080 \
 
 Never commit access tokens or passwords. Rotate any credential that has been
 exposed in source, notebook output, shell history, or a Git commit.
+
+### Data versioning with DVC
+
+The `artifacts/` directory is tracked by DVC with DagsHub as the remote storage.
+The pointer file `artifacts.dvc` is committed to Git in place of the actual data.
+
+```bash
+# Pull artifacts after cloning
+venv/bin/dvc pull
+
+# Push updated artifacts after a training run
+venv/bin/dvc push
+```
+
+Credentials for the DVC remote use the same DagsHub token as MLflow:
+
+```bash
+venv/bin/dvc remote modify origin --local auth basic
+venv/bin/dvc remote modify origin --local user salimnextdev
+venv/bin/dvc remote modify origin --local password <your_dagshub_token>
+```
+
+### AWS deployment with Terraform and ECS Fargate
+
+The `terraform/` directory provisions the full AWS infrastructure:
+
+- VPC with 2 public subnets across 2 availability zones
+- Application Load Balancer on port 80
+- ECR repository for the Docker image
+- ECS Fargate cluster, task definition, and service
+- CloudWatch log group for container logs
+- The DagsHub token is read from AWS Secrets Manager at task startup
+
+**One-time setup — store the DagsHub token in Secrets Manager:**
+
+```bash
+aws secretsmanager create-secret \
+  --name datascienceproject/mlflow-token \
+  --secret-string "<your_dagshub_token>"
+```
+
+**Provision the infrastructure:**
+
+```bash
+cd terraform
+# copy terraform.tfvars.example and fill in your secret ARN
+terraform init
+terraform apply
+```
+
+**Build and push the image to ECR:**
+
+```bash
+aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin <ecr_repository_url>
+
+docker build -t datascienceproject-api:local .
+docker tag datascienceproject-api:local <ecr_repository_url>:latest
+docker push <ecr_repository_url>:latest
+```
+
+Replace `<ecr_repository_url>` with the value from `terraform output ecr_repository_url`.
+Once the ECS service starts the task, the application is available at the URL
+from `terraform output alb_dns_name`.

@@ -22,6 +22,12 @@ logs/
 # DVC-tracked artifacts (managed via artifacts.dvc)
 /artifacts
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
 # DVC internal cache
 .dvc/cache
 .dvc/tmp
