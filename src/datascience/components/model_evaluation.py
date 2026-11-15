@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 from sklearn.metrics import mean_squared_error,mean_absolute_error, r2_score
 from urllib.parse import urlparse
@@ -10,8 +11,7 @@ import mlflow.sklearn
 import numpy as np
 import joblib
 import os 
-os.environ["MLFOW_TRACKING_URI"]="https://dagshub.com/salimnextdev/datascienceproject.mlflow"
-os.environ["MLFLOW_TRACKING_USERNAME"]="salimnextdev"
+
 
 class ModelEvaluation:
     def __init__(self, config: ModelEvaluationConfig):

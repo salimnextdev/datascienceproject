@@ -1,3 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environment
 venv/
-airtifacts/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
 logs/
+
+# Environment / secrets
+.env
+.env.*
+
+# DVC-tracked artifacts (managed via artifacts.dvc)
+/artifacts
+
+# DVC internal cache
+.dvc/cache
+.dvc/tmp
