@@ -131,11 +131,13 @@ container installs the API and training runtime dependencies from
   the Joblib model, and evaluation metrics. These are generated runtime
   artifacts rather than source code. The directory is tracked by DVC; only
   `artifacts.dvc` is committed to Git.
-- `terraform/` contains the Terraform configuration for provisioning the AWS
-  infrastructure (VPC, ECR, ECS Fargate, ALB). `terraform.tfvars` is gitignored
-  and must be created locally before running `terraform apply`.
-- `bootstrap-tfstate.sh` creates the S3 bucket and DynamoDB table required by
-  the Terraform S3 backend before `terraform init` is run for the first time.
+- `terraform/modules/app/` contains the reusable Terraform module with all
+  infrastructure resources (VPC, ALB, ECR, ECS, IAM, CloudWatch).
+- `terraform/environments/dev/`, `staging/`, and `prod/` each call the module
+  with environment-specific sizing and isolated S3 state keys. `terraform.tfvars`
+  is gitignored in each environment; copy `terraform.tfvars.example` to get started.
+- `bootstrap-tfstate.sh` creates the shared S3 bucket and DynamoDB table required
+  by the Terraform S3 backend before `terraform init` is run for the first time.
 
 The model is stored locally as `model.joblib`. MLflow may also serialize its
 own logged or registered model in the format selected by the installed MLflow
@@ -196,14 +198,22 @@ venv/bin/dvc remote modify origin --local password <your_dagshub_token>
 
 ### AWS deployment with Terraform and ECS Fargate
 
-The `terraform/` directory provisions the full AWS infrastructure:
+The `terraform/` directory provisions the full AWS infrastructure across three
+isolated environments using a shared reusable module:
 
-- VPC with 2 public subnets across 2 availability zones
-- Application Load Balancer on port 80
-- ECR repository for the Docker image
-- ECS Fargate cluster, task definition, and service
-- CloudWatch log group for container logs
-- The DagsHub token is read from AWS Secrets Manager at task startup
+```
+terraform/
+├── modules/app/          # reusable module — VPC, ALB, ECR, ECS, IAM, CloudWatch
+└── environments/
+    ├── dev/              # 256 CPU / 512 MB / 1 task / 3-day logs
+    ├── staging/          # 512 CPU / 1 GB  / 1 task / 7-day logs
+    └── prod/             # 1024 CPU / 2 GB / 2 tasks / 30-day logs
+```
+
+Each environment has its own isolated state file in S3
+(`dev/terraform.tfstate`, `staging/terraform.tfstate`, `prod/terraform.tfstate`)
+and its own non-overlapping VPC CIDR. All environments share the same S3 bucket
+and DynamoDB lock table.
 
 **One-time setup — store the DagsHub token in Secrets Manager:**
 
@@ -223,11 +233,12 @@ This creates the S3 bucket (`datascienceproject-tfstate`) with versioning and
 encryption enabled, and the DynamoDB table (`datascienceproject-tfstate-lock`)
 for state locking.
 
-**Provision the infrastructure:**
+**Provision an environment:**
 
 ```bash
-cd terraform
-# copy terraform.tfvars.example and fill in your secret ARN
+cd terraform/environments/dev   # or staging / prod
+cp terraform.tfvars.example terraform.tfvars
+# fill in your secret ARN
 terraform init
 terraform apply
 ```
