@@ -110,7 +110,8 @@ the application to untrusted users.
 | Secret management | AWS Secrets Manager | Stores the DagsHub token injected into the container as `MLFLOW_TRACKING_PASSWORD`. |
 | Remote state storage | AWS S3 | Stores the Terraform state file with versioning and AES256 encryption. |
 | State locking | AWS DynamoDB | Prevents concurrent Terraform runs from corrupting the state file. |
-| CI/CD/CT | GitHub Actions | Runs linting, SAST, SCA, the full ML pipeline, container scanning, Docker build, ECS deployment, and DAST on every push. |
+| CI/CD/CT | GitHub Actions | Runs secrets scanning, linting, SAST, SCA, the full ML pipeline, container scanning, Docker build, ECS deployment, and DAST on every push. |
+| Secrets scanning | Gitleaks | Scans the full Git history for hardcoded secrets, tokens, and credentials on every push. |
 | SAST | SonarQube | Static analysis of Python source code for bugs, code smells, and security vulnerabilities. |
 | SCA | Snyk | Scans `requirements.txt` for known vulnerabilities in open-source dependencies. |
 | Container scanning | Trivy | Scans the built Docker image for OS and library CVEs before it is pushed to ECR. |
@@ -274,6 +275,7 @@ and can be triggered manually.
 
 | Job | Trigger | What it does |
 |---|---|---|
+| Secrets scan | every push and PR | Runs Gitleaks across the full Git history to detect any hardcoded secrets or credentials before any other job runs. |
 | CI | every push and PR | Installs dependencies and runs `flake8` on `src/`, `app.py`, and `main.py`. |
 | SAST | every push and PR | Runs SonarQube static analysis on the Python source code. |
 | SCA | every push and PR | Runs Snyk against `requirements.txt` and fails on high or critical dependency CVEs. |

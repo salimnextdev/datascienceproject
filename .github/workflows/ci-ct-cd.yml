@@ -16,10 +16,27 @@ env:
 
 jobs:
 
-  # ── 1. CI — lint ──────────────────────────────────────────────────────────
+  # ── 1. Secrets scan — Gitleaks ────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets scan — Gitleaks
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks — scan for hardcoded secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 2. CI — lint ──────────────────────────────────────────────────────────
   ci:
     name: CI — lint & install
     runs-on: ubuntu-latest
+    needs: secrets-scan
     if: github.event_name != 'schedule'
 
     steps:
@@ -38,7 +55,7 @@ jobs:
           pip install flake8
           flake8 src/ app.py main.py --max-line-length=120 --ignore=E501,W503
 
-  # ── 2. SAST — SonarQube source code analysis ──────────────────────────────
+  # ── 3. SAST — SonarQube source code analysis ──────────────────────────────
   sast:
     name: SAST — SonarQube
     runs-on: ubuntu-latest
@@ -61,7 +78,7 @@ jobs:
             -Dsonar.sources=src/,app.py,main.py
             -Dsonar.python.version=3.10
 
-  # ── 3. SCA — Snyk open-source dependency scan ─────────────────────────────
+  # ── 4. SCA — Snyk open-source dependency scan ─────────────────────────────
   sca:
     name: SCA — Snyk dependency scan
     runs-on: ubuntu-latest
@@ -78,7 +95,7 @@ jobs:
         with:
           args: --severity-threshold=high --file=requirements.txt
 
-  # ── 4. CT — Continuous Training ───────────────────────────────────────────
+  # ── 5. CT — Continuous Training ───────────────────────────────────────────
   train:
     name: CT — train & evaluate
     runs-on: ubuntu-latest
@@ -140,7 +157,7 @@ jobs:
           echo "| MAE    | ${{ steps.metrics.outputs.mae }}  |" >> $GITHUB_STEP_SUMMARY
           echo "| R²     | ${{ steps.metrics.outputs.r2 }}   |" >> $GITHUB_STEP_SUMMARY
 
-  # ── 5. CD — Build image, Trivy container scan, push, deploy ───────────────
+  # ── 6. CD — Build image, Trivy container scan, push, deploy ───────────────
   deploy:
     name: CD — build, scan & deploy (${{ github.ref_name }})
     runs-on: ubuntu-latest
@@ -215,7 +232,7 @@ jobs:
             --services ${{ env.PROJECT }}-${{ steps.env.outputs.name }}-service \
             --region ${{ env.AWS_REGION }}
 
-  # ── 6. DAST — Akamai Noname API security scan ─────────────────────────────
+  # ── 7. DAST — Akamai Noname API security scan ─────────────────────────────
   dast:
     name: DAST — Akamai Noname API scan
     runs-on: ubuntu-latest
@@ -249,7 +266,7 @@ jobs:
               "fail_on_severity": "high"
             }'
 
-  # ── 7. Continuous monitoring ───────────────────────────────────────────────
+  # ── 8. Continuous monitoring ───────────────────────────────────────────────
   monitor:
     name: Monitor — re-evaluate model
     runs-on: ubuntu-latest
